@@ -11,7 +11,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -114,7 +116,11 @@ func SendNotificationWithContext(ctx context.Context, message []byte, s *Subscri
 	}
 	mlen := curve.Params().BitSize / 8
 	sharedECDHSecret := make([]byte, mlen)
-	sx.FillBytes(sharedECDHSecret)
+
+	err = fillSharedSecret(sharedECDHSecret, sx)
+	if err != nil {
+		return nil, err
+	}
 
 	hash := sha256.New
 
@@ -234,6 +240,18 @@ func SendNotificationWithContext(ctx context.Context, message []byte, s *Subscri
 	}
 
 	return client.Do(req)
+}
+
+func fillSharedSecret(buf []byte, sx *big.Int) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to fill shared secret buffer. buf was too small: %v", r)
+		}
+	}()
+
+	sx.FillBytes(buf)
+
+	return nil
 }
 
 // decodeSubscriptionKey decodes a base64 subscription key.
